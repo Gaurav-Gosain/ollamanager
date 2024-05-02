@@ -5,7 +5,7 @@ for Ollama directly from your terminal. It offers effortless model selection
 and tag-based retrieval, accompanied by detailed progress updates and a
 user-friendly progress bar.
 
-![Ollamanager](demo/ollamanger.gif)
+![Ollamanager](demo/ollamanager.gif)
 
 ## 🌟 Features
 
