@@ -162,7 +162,7 @@ Ollamanager relies on the following third-party packages:
 
 ## 🗺️ Roadmap
 
-- [] Add CLI flags to directly specify model and tag
+- [ ] Add CLI flags to directly specify model and tag
 
 ## 🤝 Contribution
 
