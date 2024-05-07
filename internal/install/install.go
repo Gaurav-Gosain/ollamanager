@@ -2,6 +2,7 @@ package install
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,13 +13,17 @@ import (
 	"github.com/charmbracelet/bubbles/progress"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/huh/spinner"
 	"github.com/gaurav-gosain/ollamanager/internal/tui"
 	"golang.org/x/net/html"
 )
 
 type OllamaModel struct {
-	Name        string
-	Description string
+	Title   string
+	Desc    string
+	Pulls   string
+	Tags    string
+	Updated string
 }
 
 func extractModels(htmlString string) []OllamaModel {
@@ -31,7 +36,6 @@ func extractModels(htmlString string) []OllamaModel {
 		return models
 	}
 
-	// Define a function to traverse the HTML tree and extract models
 	var traverse func(*html.Node)
 	traverse = func(n *html.Node) {
 		if n.Type == html.ElementNode && n.Data == "a" {
@@ -45,15 +49,46 @@ func extractModels(htmlString string) []OllamaModel {
 				}
 			}
 			if href != "" {
-				// Find the <p> tag inside the <a> tag
+				// Find the last <p> tag inside the <a> tag
+				var desc, pulls, tags, updated string
+				found := false
 				for c := n.FirstChild; c != nil; c = c.NextSibling {
-					if c.Type == html.ElementNode && c.Data == "p" {
-						// Extract the description text
-						description := strings.TrimSpace(c.FirstChild.Data)
-						models = append(models, OllamaModel{Name: name, Description: description})
+					if found {
 						break
 					}
+					if c.Type == html.ElementNode && c.Data == "p" {
+						if strings.TrimSpace(c.FirstChild.Data) != "" {
+							desc = strings.TrimSpace(c.FirstChild.Data)
+						} else {
+							// Find and extract pulls, tags, and updated numbers from <span> tags
+							for span := c.FirstChild; span != nil; span = span.NextSibling {
+								if found {
+									break
+								}
+								if span.Type == html.ElementNode && span.Data == "span" {
+									for spanContent := span.FirstChild; spanContent != nil; spanContent = spanContent.NextSibling {
+										text := strings.TrimSpace(spanContent.Data)
+										if text == "" || text == "span" || text == "svg" {
+											continue
+										}
+										// fmt.Println(text)
+										if pulls == "" {
+											pulls = text
+										} else if tags == "" {
+											tags = text
+										} else if updated == "" {
+											updated = text
+										} else {
+											found = true
+											break
+										}
+									}
+								}
+							}
+						}
+					}
 				}
+				models = append(models, OllamaModel{Title: name, Desc: desc, Pulls: pulls, Tags: tags, Updated: updated})
 			}
 		}
 		// Recursively call the function for child nodes
@@ -111,10 +146,32 @@ func GetAvailableTags(modelName string) ([]string, error) {
 }
 
 func Run(apiUrl string) (string, string, error) {
-	models, err := GetAvailableModels()
+	ctx := context.Background()
+
+	var models []OllamaModel
+	var err error
+
+	loadModels := func() {
+		models, err = GetAvailableModels()
+		ctx.Done() // signal that model fetching is done
+	}
+
+	spinnerErr := spinner.
+		New().
+		Title("Loading models...").
+		Action(loadModels).
+		Run()
+
+	if spinnerErr != nil {
+		return "", "", spinnerErr
+	}
+
 	if err != nil {
-		fmt.Println("Error getting models")
 		return "", "", err
+	}
+
+	if len(models) == 0 {
+		return "", "", errors.New("couldn't load model names :(")
 	}
 
 	var modelName string
@@ -123,7 +180,7 @@ func Run(apiUrl string) (string, string, error) {
 	options := []huh.Option[string]{}
 
 	for _, model := range models {
-		options = append(options, huh.NewOption(model.Name, model.Name))
+		options = append(options, huh.NewOption(model.Title, model.Title))
 	}
 
 	form := huh.NewForm(
@@ -146,10 +203,31 @@ func Run(apiUrl string) (string, string, error) {
 	var tag string
 	confirm = false
 
-	modelTags, err := GetAvailableTags(modelName)
+	ctx = context.Background()
+
+	var modelTags []string
+
+	loadModelTags := func() {
+		modelTags, err = GetAvailableTags(modelName)
+		ctx.Done() // signal that model fetching is done
+	}
+
+	spinnerErr = spinner.
+		New().
+		Title("Loading tags for " + modelName + "...").
+		Action(loadModelTags).
+		Run()
+
+	if spinnerErr != nil {
+		return "", "", spinnerErr
+	}
+
 	if err != nil {
-		fmt.Println("Error getting tags")
 		return "", "", err
+	}
+
+	if len(modelTags) == 0 {
+		return "", "", errors.New("couldn't load tags for " + modelName + "  :(")
 	}
 
 	options = []huh.Option[string]{}
