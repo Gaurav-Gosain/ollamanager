@@ -1,19 +1,13 @@
 package tui
 
 import (
-	"context"
 	"fmt"
-	"io"
-	"net/http"
-	"os"
-	"regexp"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh/spinner"
 	"github.com/charmbracelet/lipgloss"
-	"golang.org/x/net/html"
 )
 
 // Style definitions.
@@ -58,135 +52,16 @@ func tabBorderWithBottom(left, middle, right string) lipgloss.Border {
 	return border
 }
 
-type OllamaModel struct {
-	Name    string
-	Desc    string
-	Pulls   string
-	Tags    string
-	Updated string
-}
-
-func removeExtraWhitespace(input string) string {
-	// Match any sequence of whitespace characters or newline characters
-	regex := regexp.MustCompile(`\s+`)
-	// Replace matched sequences with a single space
-	cleaned := regex.ReplaceAllString(input, " ")
-	return cleaned
-}
-
-func extractModels(htmlString string) []OllamaModel {
-	var models []OllamaModel
-
-	// Parse the HTML
-	doc, err := html.Parse(strings.NewReader(htmlString))
-	if err != nil {
-		fmt.Println("Error parsing HTML:", err)
-		return models
-	}
-
-	var traverse func(*html.Node)
-	traverse = func(n *html.Node) {
-		if n.Type == html.ElementNode && n.Data == "a" {
-			// Check if the <a> tag has an href attribute starting with "/library/"
-			var href, name string
-			for _, attr := range n.Attr {
-				if attr.Key == "href" && strings.HasPrefix(attr.Val, "/library/") {
-					href = attr.Val
-					name = strings.TrimPrefix(href, "/library/")
-					break
-				}
-			}
-			if href != "" {
-				// Find the last <p> tag inside the <a> tag
-				var desc, pulls, tags, updated string
-				found := false
-				for c := n.FirstChild; c != nil; c = c.NextSibling {
-					if found {
-						break
-					}
-					if c.Type == html.ElementNode && c.Data == "p" {
-						if strings.TrimSpace(c.FirstChild.Data) != "" {
-							desc = removeExtraWhitespace(c.FirstChild.Data)
-						} else {
-							// Find and extract pulls, tags, and updated numbers from <span> tags
-							for span := c.FirstChild; span != nil; span = span.NextSibling {
-								if found {
-									break
-								}
-								if span.Type == html.ElementNode && span.Data == "span" {
-									for spanContent := span.FirstChild; spanContent != nil; spanContent = spanContent.NextSibling {
-										text := strings.TrimSpace(spanContent.Data)
-										if text == "" || text == "span" || text == "svg" {
-											continue
-										}
-										// fmt.Println(text)
-										if pulls == "" {
-											pulls = text
-										} else if tags == "" {
-											tags = text
-										} else if updated == "" {
-											updated = text
-										} else {
-											found = true
-											break
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-				models = append(models, OllamaModel{Name: name, Desc: desc, Pulls: pulls, Tags: tags, Updated: updated})
-			}
-		}
-		// Recursively call the function for child nodes
-		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			traverse(c)
-		}
-	}
-
-	// Start traversing the HTML tree
-	traverse(doc)
-
-	return models
-}
-
-func GetAvailableModels() ([]OllamaModel, error) {
-	resp, err := http.Get("https://ollama.com/library")
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	models := extractModels(string(body))
-	return models, nil
-}
-
-func (model OllamaModel) Title() string {
-	return model.Name
-}
-
-func (model OllamaModel) Description() string {
-	return fmt.Sprintf(
-		"↓ %s • %s tags • %s",
-		model.Pulls, model.Tags, model.Updated,
-	)
-}
-func (model OllamaModel) FilterValue() string { return model.Name }
-
 type ModelSelector struct {
 	list          list.Model
+	help          help.Model
 	SelectedModel OllamaModel
 	Tabs          []string
 	width         int
 	height        int
 	ActiveTab     int
 	infoVisible   bool
+	helpVisible   bool
 }
 
 func (m ModelSelector) Init() tea.Cmd {
@@ -194,6 +69,8 @@ func (m ModelSelector) Init() tea.Cmd {
 }
 
 func (m ModelSelector) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	installAction := m.Tabs[m.ActiveTab] == INSTALL && !m.helpVisible
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		if m.Tabs[m.ActiveTab] == INSTALL {
@@ -211,10 +88,13 @@ func (m ModelSelector) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.ActiveTab = max(m.ActiveTab-1, 0)
 			return m, nil
 		case "enter":
-			if m.Tabs[m.ActiveTab] == INSTALL {
+			if installAction {
 				m.SelectedModel = m.list.SelectedItem().(OllamaModel)
 				return m, tea.Quit
 			}
+		case "?":
+			m.helpVisible = !m.helpVisible
+			return m, nil
 		}
 	case tea.WindowSizeMsg:
 		h, v := docStyle.GetFrameSize()
@@ -227,13 +107,14 @@ func (m ModelSelector) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.infoVisible = false
 		}
+		m.help.Width = 8 * m.width / 10
 		v = activeTabStyle.GetVerticalFrameSize()
 		m.list.SetSize(listWidth, m.height-v)
 	}
 
 	var cmd tea.Cmd
 
-	if m.Tabs[m.ActiveTab] == INSTALL {
+	if installAction {
 		m.list, cmd = m.list.Update(msg)
 	}
 	return m, cmd
@@ -274,22 +155,27 @@ func (m ModelSelector) View() string {
 			BorderForeground(lipgloss.Color("69")).
 			Render(m.list.View()),
 	}
-	if m.list.SelectedItem() != nil && m.infoVisible {
 
-		selectedModel := m.list.SelectedItem().(OllamaModel)
+	selectedItem := m.list.SelectedItem()
 
-		info := fmt.Sprintf(
-			"%s\n%s\n\n%s\n\n%s",
-			titleStyle.Render(selectedModel.Name),
-			helpStyle.Foreground(dimTextColor).Render(strings.TrimSpace(selectedModel.Updated)),
-			selectedModel.Desc,
-			helpStyle.Foreground(dimTextColor).Render(
-				fmt.Sprintf(
-					"%s Pulls • %s Tags",
-					selectedModel.Pulls, selectedModel.Tags,
+	if m.infoVisible {
+
+		info := fmt.Sprintf("%s not found", titleStyle.Render(fmt.Sprintf(" %s ", m.list.FilterValue())))
+		if selectedItem != nil {
+			selectedModel := m.list.SelectedItem().(OllamaModel)
+			info = fmt.Sprintf(
+				"%s\n%s\n\n%s\n\n%s",
+				titleStyle.Render(fmt.Sprintf(" %s ", selectedModel.Name)),
+				helpStyle.Foreground(dimTextColor).Render(strings.TrimSpace(selectedModel.Updated)),
+				selectedModel.Desc,
+				helpStyle.Foreground(dimTextColor).Render(
+					fmt.Sprintf(
+						"%s Pulls • %s Tags",
+						selectedModel.Pulls, selectedModel.Tags,
+					),
 				),
-			),
-		)
+			)
+		}
 
 		frames = append(frames, layoutStyle.Copy().
 			Width(m.width-m.list.Width()).
@@ -307,6 +193,26 @@ func (m ModelSelector) View() string {
 			lipgloss.Top,
 			frames...,
 		)
+		if m.helpVisible {
+			activeTabContent = PlaceOverlay(
+				m.width/10,
+				5*m.height/100,
+				layoutStyle.
+					Copy().
+					Width(8*m.width/10).
+					Height(90*m.height/100).
+					AlignHorizontal(lipgloss.Center).
+					BorderForeground(lipgloss.Color("#209fb5")).
+					Render(
+						titleStyle.Render(" Help Menu ")+
+							"\n\n"+
+							m.help.View(Keys)+
+							"\n\n"+
+							fmt.Sprintf("Press %s to close this menu", titleStyle.Render(" ? ")),
+					),
+				activeTabContent,
+			)
+		}
 	case UPDATE:
 		activeTabContent = "Update go brr..."
 	case DELETE:
@@ -318,56 +224,4 @@ func (m ModelSelector) View() string {
 		row,
 		activeTabContent,
 	)
-}
-
-func ModelPicker(tabs []string) (model OllamaModel, err error) {
-	ctx := context.Background()
-
-	var models []OllamaModel
-
-	loadModels := func() {
-		models, err = GetAvailableModels()
-		ctx.Done() // signal that model fetching is done
-	}
-
-	spinnerErr := spinner.
-		New().
-		Title("Loading models...").
-		Action(loadModels).
-		Run()
-
-	if spinnerErr != nil {
-		return
-	}
-
-	if err != nil {
-		return
-	}
-
-	if len(models) == 0 {
-		return
-	}
-
-	items := []list.Item{}
-
-	for _, model := range models {
-		items = append(items, list.Item(model))
-	}
-
-	listModel := list.New(items, list.NewDefaultDelegate(), 0, 0)
-
-	listModel.SetShowHelp(false)
-
-	m := ModelSelector{list: listModel, Tabs: tabs}
-	m.list.Title = "Pick a Model..."
-
-	p := tea.NewProgram(m, tea.WithAltScreen())
-
-	resModel, err := p.Run()
-	if err != nil {
-		fmt.Println("Error running program:", err)
-		os.Exit(1)
-	}
-
-	return resModel.(ModelSelector).SelectedModel, nil
 }

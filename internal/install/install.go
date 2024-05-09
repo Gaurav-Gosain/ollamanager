@@ -53,8 +53,9 @@ func Run(apiUrl string) (string, string, error) {
 			tui.DELETE,
 		},
 	)
-	if err != nil {
-		return "", "", err
+
+	if err != nil || model == nil || model.Name == "" {
+		return "", "", errors.New(`failed to pick a model :(`)
 	}
 
 	modelName := model.Name

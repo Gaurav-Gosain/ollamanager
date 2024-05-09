@@ -8,6 +8,10 @@ require (
 	github.com/charmbracelet/huh v0.3.0
 	github.com/charmbracelet/huh/spinner v0.0.0-20240503021105-96abcd600d70
 	github.com/charmbracelet/lipgloss v0.10.0
+	github.com/charmbracelet/x/exp/term v0.0.0-20240509130423-e48c874ef5d2
+	github.com/mattn/go-runewidth v0.0.15
+	github.com/muesli/reflow v0.3.0
+	github.com/muesli/termenv v0.15.2
 	golang.org/x/net v0.24.0
 )
 
@@ -20,15 +24,12 @@ require (
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-localereader v0.0.1 // indirect
-	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
-	github.com/muesli/reflow v0.3.0 // indirect
-	github.com/muesli/termenv v0.15.2 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/sahilm/fuzzy v0.1.1-0.20230530133925-c48e322e2a8f // indirect
 	golang.org/x/sync v0.7.0 // indirect
-	golang.org/x/sys v0.19.0 // indirect
+	golang.org/x/sys v0.20.0 // indirect
 	golang.org/x/term v0.19.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 )
