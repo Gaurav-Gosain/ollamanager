@@ -14,7 +14,6 @@ import (
 )
 
 var (
-	helpStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#626262")).Render
 	StatusStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#F1F1F1")).
 			Background(lipgloss.Color("#8839ef")).
