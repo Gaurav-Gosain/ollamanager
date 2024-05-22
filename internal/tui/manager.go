@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/reflow/wordwrap"
 )
 
 // Style definitions.
@@ -163,11 +164,16 @@ func (m ModelSelector) View() string {
 		info := fmt.Sprintf("%s not found", titleStyle.Render(fmt.Sprintf(" %s ", m.list.FilterValue())))
 		if selectedItem != nil {
 			selectedModel := m.list.SelectedItem().(OllamaModel)
+			extraInfo := ""
+			if len(selectedModel.ExtraInfo) > 0 {
+				extraInfo = fmt.Sprintf("\n\n%s", strings.Join(selectedModel.ExtraInfo, " "))
+			}
 			info = fmt.Sprintf(
-				"%s\n%s\n\n%s\n\n%s",
+				"%s\n%s%s\n\n%s\n\n%s",
 				titleStyle.Render(fmt.Sprintf(" %s ", selectedModel.Name)),
 				helpStyle.Foreground(dimTextColor).Render(strings.TrimSpace(selectedModel.Updated)),
-				selectedModel.Desc,
+				extraInfo,
+				wordwrap.String(selectedModel.Desc, m.width-m.list.Width()-8),
 				helpStyle.Foreground(dimTextColor).Render(
 					fmt.Sprintf(
 						"%s Pulls • %s Tags",

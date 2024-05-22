@@ -7,23 +7,85 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
 	"golang.org/x/net/html"
 )
 
 type OllamaModel struct {
-	Name    string
-	Desc    string
-	Pulls   string
-	Tags    string
-	Updated string
+	Name      string
+	Desc      string
+	Pulls     string
+	Tags      string
+	Updated   string
+	ExtraInfo []string
 }
 
-func removeExtraWhitespace(input string) string {
+func removeWhitespace(input string) string {
+	input = strings.TrimSpace(input)
 	// Match any sequence of whitespace characters or newline characters
 	regex := regexp.MustCompile(`\s+`)
 	// Replace matched sequences with a single space
 	cleaned := regex.ReplaceAllString(input, " ")
 	return cleaned
+}
+
+// Function to find the first child node with a specific tag name
+func findFirstNodeByTag(node *html.Node, tagName string) *html.Node {
+	for c := node.FirstChild; c != nil; c = c.NextSibling {
+		if c.Type == html.ElementNode && c.Data == tagName {
+			return c
+		}
+	}
+	return nil
+}
+
+func findNthNodeByTag(node *html.Node, tagName string, n int) *html.Node {
+	for c := node.FirstChild; c != nil; c = c.NextSibling {
+		if c.Type == html.ElementNode && c.Data == tagName {
+			if n == 0 {
+				return c
+			} else {
+				n -= 1
+			}
+		}
+	}
+	return nil
+}
+
+func findLastNodeByTag(node *html.Node, tagName string) *html.Node {
+	for c := node.LastChild; c != nil; c = c.PrevSibling {
+		if c.Type == html.ElementNode && c.Data == tagName {
+			return c
+		}
+	}
+	return nil
+}
+
+// Function to find all child nodes with a specific tag name
+func findAllNodesByTag(node *html.Node, tagName string) []*html.Node {
+	var nodes []*html.Node
+	for c := node.FirstChild; c != nil; c = c.NextSibling {
+		if c.Type == html.ElementNode && c.Data == tagName {
+			nodes = append(nodes, c)
+		}
+	}
+	return nodes
+}
+
+func getExtraInfo(node *html.Node) []string {
+	infoTags := []string{}
+
+	for _, infoTag := range findAllNodesByTag(node, "span") {
+		infoTags = append(
+			infoTags,
+			titleStyle.
+				Copy().
+				Background(lipgloss.Color("242")).
+				Render(fmt.Sprintf(" %s ", infoTag.FirstChild.Data)),
+		)
+	}
+
+	return infoTags
 }
 
 func extractModels(htmlString string) []OllamaModel {
@@ -49,46 +111,43 @@ func extractModels(htmlString string) []OllamaModel {
 				}
 			}
 			if href != "" {
-				// Find the last <p> tag inside the <a> tag
 				var desc, pulls, tags, updated string
-				found := false
-				for c := n.FirstChild; c != nil; c = c.NextSibling {
-					if found {
-						break
+				var extraInfo []string
+				fmt.Println(n.LastChild.Data)
+				descTag := n.LastChild.Data
+				desc = removeWhitespace(descTag)
+				divTag := findFirstNodeByTag(n, "div")
+				if divTag != nil {
+					pTag := findFirstNodeByTag(divTag, "p")
+					if pTag != nil {
+						desc = pTag.FirstChild.Data
 					}
-					if c.Type == html.ElementNode && c.Data == "p" {
-						if strings.TrimSpace(c.FirstChild.Data) != "" {
-							desc = removeExtraWhitespace(c.FirstChild.Data)
-						} else {
-							// Find and extract pulls, tags, and updated numbers from <span> tags
-							for span := c.FirstChild; span != nil; span = span.NextSibling {
-								if found {
-									break
-								}
-								if span.Type == html.ElementNode && span.Data == "span" {
-									for spanContent := span.FirstChild; spanContent != nil; spanContent = spanContent.NextSibling {
-										text := strings.TrimSpace(spanContent.Data)
-										if text == "" || text == "span" || text == "svg" {
-											continue
-										}
-										// fmt.Println(text)
-										if pulls == "" {
-											pulls = text
-										} else if tags == "" {
-											tags = text
-										} else if updated == "" {
-											updated = text
-										} else {
-											found = true
-											break
-										}
-									}
-								}
-							}
-						}
+
+					extraInfoTag := findFirstNodeByTag(divTag, "div")
+
+					if extraInfoTag != nil {
+						extraInfo = getExtraInfo(extraInfoTag)
 					}
+
+					infoTag := findLastNodeByTag(divTag, "p")
+					pulls = removeWhitespace(findNthNodeByTag(infoTag, "span", 0).
+						FirstChild.
+						NextSibling.
+						NextSibling.
+						Data,
+					)
+					tags = removeWhitespace(findNthNodeByTag(infoTag, "span", 1).
+						FirstChild.
+						NextSibling.
+						NextSibling.
+						Data,
+					)
+					updated = removeWhitespace(findNthNodeByTag(infoTag, "span", 2).
+						LastChild.
+						Data,
+					)
 				}
-				models = append(models, OllamaModel{Name: name, Desc: desc, Pulls: pulls, Tags: tags, Updated: updated})
+				models = append(models, OllamaModel{Name: name, Desc: desc, Pulls: pulls, Tags: tags, Updated: updated, ExtraInfo: extraInfo})
 			}
 		}
 		// Recursively call the function for child nodes
