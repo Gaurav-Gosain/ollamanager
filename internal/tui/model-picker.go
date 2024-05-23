@@ -10,7 +10,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-func ModelPicker(tabs []string) (model *OllamaModel, err error) {
+func ModelPicker(tabs []string, baseURL string) (result ModelSelector, err error) {
 	ctx := context.Background()
 
 	var models []OllamaModel
@@ -22,7 +22,7 @@ func ModelPicker(tabs []string) (model *OllamaModel, err error) {
 
 	spinnerErr := spinner.
 		New().
-		Title("Loading models...").
+		Title("Loading available models...").
 		Action(loadModels).
 		Run()
 
@@ -38,32 +38,71 @@ func ModelPicker(tabs []string) (model *OllamaModel, err error) {
 		return
 	}
 
-	items := []list.Item{}
+	installableItems := []list.Item{}
 
 	for _, model := range models {
-		items = append(items, list.Item(model))
+		installableItems = append(installableItems, list.Item(model))
 	}
 
-	listModel := list.New(items, list.NewDefaultDelegate(), 0, 0)
+	ctx = context.Background()
 
-	listModel.SetShowHelp(false)
+	var installedModels []InstalledOllamaModel
+
+	loadModels = func() {
+		installedModels, err = GetInstalledModels(baseURL)
+		ctx.Done() // signal that model fetching is done
+	}
+
+	spinnerErr = spinner.
+		New().
+		Title("Loading available models...").
+		Action(loadModels).
+		Run()
+
+	if spinnerErr != nil {
+		return
+	}
+
+	if err != nil {
+		return
+	}
+
+	if len(models) == 0 {
+		return
+	}
+
+	installedItems := []list.Item{}
+
+	for _, model := range installedModels {
+		installedItems = append(installedItems, list.Item(model))
+	}
+
+	installableModelsList := list.New(installableItems, list.NewDefaultDelegate(), 0, 0)
+	installableModelsList.Title = "Pick a Model..."
+	installableModelsList.SetShowHelp(false)
+
+	installedModelsList := list.New(installedItems, list.NewDefaultDelegate(), 0, 0)
+	installedModelsList.Title = "Pick a Model..."
+	installedModelsList.SetShowHelp(false)
 
 	helpModel := help.New()
 	helpModel.ShowAll = true
 	helpModel.Styles.FullDesc.UnsetForeground()
 	helpModel.Styles.FullKey = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#43BF6D", Dark: "#73F59F"})
 
-	m := ModelSelector{list: listModel, Tabs: tabs, help: helpModel}
-	m.list.Title = "Pick a Model..."
+	m := ModelSelector{
+		installableList: installableModelsList,
+		installedList:   installedModelsList,
+		Tabs:            tabs,
+		help:            helpModel,
+	}
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
 
 	resModel, err := p.Run()
 	if err != nil {
-		return nil, err
+		return
 	}
 
-	res := resModel.(ModelSelector).SelectedModel
-
-	return &res, nil
+	return resModel.(ModelSelector), nil
 }

@@ -31,7 +31,6 @@ user-friendly progress bar.
 
 ### Prerequisites
 
-- [Go](https://go.dev/) installed on your system.
 - [Ollama](https://ollama.com/) installed on your system or a ollamanager API server
   accessible from your machine. (Default: `http://localhost:11434`)
   Read more about customizing the base URL [here](#options).
@@ -50,6 +49,8 @@ Grab the latest release from the
 the archive to a location of your choice.
 
 #### Install using Go
+
+Make sure you have [Go](https://go.dev/) installed on your system and in path.
 
 You can also install Ollamanager using the `go install` command:
 

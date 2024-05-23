@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 
 	"github.com/gaurav-gosain/ollamanager/internal/install"
 	"github.com/gaurav-gosain/ollamanager/internal/utils"
@@ -15,7 +14,7 @@ func main() {
 
 	utils.PrintInstallResult(
 		install.Run(
-			fmt.Sprintf("%s/api/pull", baseURL),
+			baseURL,
 		),
 	)
 }

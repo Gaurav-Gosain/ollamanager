@@ -54,15 +54,18 @@ func tabBorderWithBottom(left, middle, right string) lipgloss.Border {
 }
 
 type ModelSelector struct {
-	list          list.Model
-	help          help.Model
-	SelectedModel OllamaModel
-	Tabs          []string
-	width         int
-	height        int
-	ActiveTab     int
-	infoVisible   bool
-	helpVisible   bool
+	installableList          list.Model
+	installedList            list.Model
+	help                     help.Model
+	SelectedInstallableModel OllamaModel
+	SelectedInstalledModel   InstalledOllamaModel
+	Action                   string
+	Tabs                     []string
+	width                    int
+	height                   int
+	ActiveTab                int
+	infoVisible              bool
+	helpVisible              bool
 }
 
 func (m ModelSelector) Init() tea.Cmd {
@@ -70,18 +73,31 @@ func (m ModelSelector) Init() tea.Cmd {
 }
 
 func (m ModelSelector) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	installAction := m.Tabs[m.ActiveTab] == INSTALL && !m.helpVisible
+	installAction := m.Tabs[m.ActiveTab] == INSTALL
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		if m.Tabs[m.ActiveTab] == INSTALL {
-			if m.list.FilterState() == list.Filtering {
-				break
-			}
+		if m.installableList.FilterState() == list.Filtering || m.installedList.FilterState() == list.Filtering {
+			break
 		}
+
+		if m.helpVisible {
+			switch keypress := msg.String(); keypress {
+			case "ctrl+c", "q":
+				return m, tea.Quit
+			case "?", "esc":
+				m.helpVisible = !m.helpVisible
+				return m, nil
+			}
+			break
+		}
+
 		switch keypress := msg.String(); keypress {
 		case "ctrl+c", "q":
 			return m, tea.Quit
+		case "?":
+			m.helpVisible = !m.helpVisible
+			return m, nil
 		case "n", "tab":
 			m.ActiveTab = min(m.ActiveTab+1, len(m.Tabs)-1)
 			return m, nil
@@ -90,12 +106,12 @@ func (m ModelSelector) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "enter":
 			if installAction {
-				m.SelectedModel = m.list.SelectedItem().(OllamaModel)
-				return m, tea.Quit
+				m.SelectedInstallableModel = m.installableList.SelectedItem().(OllamaModel)
+			} else {
+				m.SelectedInstalledModel = m.installedList.SelectedItem().(InstalledOllamaModel)
 			}
-		case "?":
-			m.helpVisible = !m.helpVisible
-			return m, nil
+			m.Action = m.Tabs[m.ActiveTab]
+			return m, tea.Quit
 		}
 	case tea.WindowSizeMsg:
 		h, v := docStyle.GetFrameSize()
@@ -110,13 +126,18 @@ func (m ModelSelector) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.help.Width = 8 * m.width / 10
 		v = activeTabStyle.GetVerticalFrameSize()
-		m.list.SetSize(listWidth, m.height-v)
+		m.installableList.SetSize(listWidth, m.height-v)
+		m.installedList.SetSize(listWidth, m.height-v)
 	}
 
 	var cmd tea.Cmd
 
-	if installAction {
-		m.list, cmd = m.list.Update(msg)
+	if !m.helpVisible {
+		if installAction {
+			m.installableList, cmd = m.installableList.Update(msg)
+		} else {
+			m.installedList, cmd = m.installedList.Update(msg)
+		}
 	}
 	return m, cmd
 }
@@ -148,43 +169,81 @@ func (m ModelSelector) View() string {
 
 	v := activeTabStyle.GetVerticalFrameSize()
 
+	var list list.Model
+
+	switch m.Tabs[m.ActiveTab] {
+	case INSTALL:
+		list = m.installableList
+	default:
+		list = m.installedList
+	}
+
 	frames := []string{
 		layoutStyle.Copy().
 			Padding(0, 2).
-			Width(m.list.Width()).
+			Width(m.installableList.Width()).
 			Height(m.height - v).
 			BorderForeground(lipgloss.Color("69")).
-			Render(m.list.View()),
+			Render(list.View()),
 	}
 
-	selectedItem := m.list.SelectedItem()
+	selectedItem := list.SelectedItem()
 
 	if m.infoVisible {
 
-		info := fmt.Sprintf("%s not found", titleStyle.Render(fmt.Sprintf(" %s ", m.list.FilterValue())))
-		if selectedItem != nil {
-			selectedModel := m.list.SelectedItem().(OllamaModel)
-			extraInfo := ""
-			if len(selectedModel.ExtraInfo) > 0 {
-				extraInfo = fmt.Sprintf("\n\n%s", strings.Join(selectedModel.ExtraInfo, " "))
-			}
-			info = fmt.Sprintf(
-				"%s\n%s%s\n\n%s\n\n%s",
-				titleStyle.Render(fmt.Sprintf(" %s ", selectedModel.Name)),
-				helpStyle.Foreground(dimTextColor).Render(strings.TrimSpace(selectedModel.Updated)),
-				extraInfo,
-				wordwrap.String(selectedModel.Desc, m.width-m.list.Width()-8),
-				helpStyle.Foreground(dimTextColor).Render(
-					fmt.Sprintf(
-						"%s Pulls • %s Tags",
-						selectedModel.Pulls, selectedModel.Tags,
+		info := fmt.Sprintf("%s not found", titleStyle.Render(fmt.Sprintf(" %s ", list.FilterValue())))
+
+		switch m.Tabs[m.ActiveTab] {
+		case INSTALL:
+			if selectedItem != nil {
+				selectedModel := m.installableList.SelectedItem().(OllamaModel)
+				extraInfo := ""
+				if len(selectedModel.ExtraInfo) > 0 {
+					extraInfo = fmt.Sprintf("\n\n%s", strings.Join(selectedModel.ExtraInfo, " "))
+				}
+				info = fmt.Sprintf(
+					"%s\n\n%s%s\n\n%s\n\n%s",
+					titleStyle.Render(fmt.Sprintf(" %s ", selectedModel.Name)),
+					lipgloss.NewStyle().Foreground(dimTextColor).Render(strings.TrimSpace(selectedModel.Updated)),
+					extraInfo,
+					wordwrap.String(selectedModel.Desc, m.width-m.installableList.Width()-8),
+					lipgloss.NewStyle().Foreground(dimTextColor).Render(
+						fmt.Sprintf(
+							"%s Pulls • %s Tags",
+							selectedModel.Pulls, selectedModel.Tags,
+						),
 					),
-				),
-			)
+				)
+			}
+		default:
+			if selectedItem != nil {
+				selectedModel := list.SelectedItem().(InstalledOllamaModel)
+				info = fmt.Sprintf(
+					"%s\n\n%s\n\n%s\n\n%s",
+					titleStyle.
+						AlignHorizontal(lipgloss.Center).
+						Render(fmt.Sprintf(" %s ", selectedModel.Name)),
+					strings.Join([]string{
+						titleStyle.
+							Copy().
+							Background(lipgloss.Color("242")).
+							Render(fmt.Sprintf(" %s ", selectedModel.Details.Format)),
+						titleStyle.
+							Copy().
+							Background(lipgloss.Color("242")).
+							Render(fmt.Sprintf(" %s ", selectedModel.Details.QuantizationLevel)),
+					}, " "),
+					wordwrap.String(selectedModel.Digest, m.width-m.installableList.Width()),
+					lipgloss.NewStyle().Foreground(dimTextColor).Render(
+						selectedModel.Description(),
+					),
+				)
+			}
+
 		}
 
 		frames = append(frames, layoutStyle.Copy().
-			Width(m.width-m.list.Width()).
+			Width(m.width-list.Width()).
 			Height(m.height-v).
 			AlignHorizontal(lipgloss.Center).
 			Padding(0, 2).
@@ -193,36 +252,29 @@ func (m ModelSelector) View() string {
 		)
 	}
 
-	switch m.Tabs[m.ActiveTab] {
-	case INSTALL:
-		activeTabContent = lipgloss.JoinHorizontal(
-			lipgloss.Top,
-			frames...,
+	activeTabContent = lipgloss.JoinHorizontal(
+		lipgloss.Top,
+		frames...,
+	)
+	if m.helpVisible {
+		activeTabContent = PlaceOverlay(
+			m.width/10,
+			5*m.height/100,
+			layoutStyle.
+				Copy().
+				Width(8*m.width/10).
+				Height(90*m.height/100).
+				AlignHorizontal(lipgloss.Center).
+				BorderForeground(lipgloss.Color("#209fb5")).
+				Render(
+					titleStyle.Render(" Help Menu ")+
+						"\n\n"+
+						m.help.View(Keys)+
+						"\n\n"+
+						fmt.Sprintf("Press %s to close this menu", titleStyle.Render(" ? ")),
+				),
+			activeTabContent,
 		)
-		if m.helpVisible {
-			activeTabContent = PlaceOverlay(
-				m.width/10,
-				5*m.height/100,
-				layoutStyle.
-					Copy().
-					Width(8*m.width/10).
-					Height(90*m.height/100).
-					AlignHorizontal(lipgloss.Center).
-					BorderForeground(lipgloss.Color("#209fb5")).
-					Render(
-						titleStyle.Render(" Help Menu ")+
-							"\n\n"+
-							m.help.View(Keys)+
-							"\n\n"+
-							fmt.Sprintf("Press %s to close this menu", titleStyle.Render(" ? ")),
-					),
-				activeTabContent,
-			)
-		}
-	case UPDATE:
-		activeTabContent = "Update go brr..."
-	case DELETE:
-		activeTabContent = "Delete go brr..."
 	}
 
 	return lipgloss.JoinVertical(

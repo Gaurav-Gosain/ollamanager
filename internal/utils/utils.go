@@ -33,7 +33,7 @@ func PrintError(err error, exitOnErr bool) {
 	}
 }
 
-func PrintInstallResult(modelName, tag string, err error) {
+func PrintInstallResult(action, modelName, tag string, err error) {
 	if err != nil {
 		PrintError(err, true)
 		return
@@ -50,7 +50,8 @@ func PrintInstallResult(modelName, tag string, err error) {
 		os.Stdout,
 		Padding.Render(
 			fmt.Sprintf(
-				"Downloaded model %s with tag %s successfully!",
+				"Performed action %s on model %s with tag %s successfully!",
+				SuccessHeader.SetString(action).String(),
 				SuccessHeader.SetString(modelName).String(),
 				SuccessHeader.SetString(tag).String(),
 			),

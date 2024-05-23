@@ -9,6 +9,7 @@ require (
 	github.com/charmbracelet/huh/spinner v0.0.0-20240503021105-96abcd600d70
 	github.com/charmbracelet/lipgloss v0.10.0
 	github.com/charmbracelet/x/exp/term v0.0.0-20240509130423-e48c874ef5d2
+	github.com/dustin/go-humanize v1.0.1
 	github.com/mattn/go-runewidth v0.0.15
 	github.com/muesli/reflow v0.3.0
 	github.com/muesli/termenv v0.15.2
