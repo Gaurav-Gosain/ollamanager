@@ -1,4 +1,4 @@
-package main
+package ollamanager
 
 import (
 	"github.com/gaurav-gosain/ollamanager/internal/install"
