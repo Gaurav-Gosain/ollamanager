@@ -2,12 +2,15 @@ package tui
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	humanize "github.com/dustin/go-humanize"
+	"github.com/gaurav-gosain/ollamanager/tabs"
 	"github.com/muesli/reflow/wordwrap"
 )
 
@@ -39,12 +42,6 @@ var (
 	windowStyle       = lipgloss.NewStyle().BorderForeground(highlightColor).Padding(2, 0).Align(lipgloss.Center).Border(lipgloss.NormalBorder()).UnsetBorderTop()
 )
 
-const (
-	INSTALL = "Install"
-	UPDATE  = "Update"
-	DELETE  = "Delete"
-)
-
 func tabBorderWithBottom(left, middle, right string) lipgloss.Border {
 	border := lipgloss.RoundedBorder()
 	border.BottomLeft = left
@@ -56,11 +53,15 @@ func tabBorderWithBottom(left, middle, right string) lipgloss.Border {
 type ModelSelector struct {
 	installableList          list.Model
 	installedList            list.Model
+	runningList              list.Model
 	help                     help.Model
 	SelectedInstallableModel OllamaModel
+	SelectedRunningModel     RunningOllamaModel
 	SelectedInstalledModel   InstalledOllamaModel
-	Action                   string
-	Tabs                     []string
+	Action                   tabs.Tab
+	ManageAction             tabs.InstalledAction
+	Tabs                     []tabs.Tab
+	ApprovedActions          []tabs.InstalledAction
 	width                    int
 	height                   int
 	ActiveTab                int
@@ -73,7 +74,9 @@ func (m ModelSelector) Init() tea.Cmd {
 }
 
 func (m ModelSelector) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	installAction := m.Tabs[m.ActiveTab] == INSTALL
+	installAction := m.Tabs[m.ActiveTab] == tabs.INSTALL
+	manageAction := m.Tabs[m.ActiveTab] == tabs.INSTALLED
+	runningAction := m.Tabs[m.ActiveTab] == tabs.RUNNING
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -107,10 +110,12 @@ func (m ModelSelector) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			if installAction {
 				m.SelectedInstallableModel = m.installableList.SelectedItem().(OllamaModel)
-			} else {
+			} else if runningAction {
+				m.SelectedRunningModel = m.runningList.SelectedItem().(RunningOllamaModel)
+			} else if manageAction {
 				m.SelectedInstalledModel = m.installedList.SelectedItem().(InstalledOllamaModel)
 			}
-			m.Action = m.Tabs[m.ActiveTab]
+			m.Action = tabs.Tab(m.Tabs[m.ActiveTab])
 			return m, tea.Quit
 		}
 	case tea.WindowSizeMsg:
@@ -128,6 +133,7 @@ func (m ModelSelector) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		v = activeTabStyle.GetVerticalFrameSize()
 		m.installableList.SetSize(listWidth, m.height-v)
 		m.installedList.SetSize(listWidth, m.height-v)
+		m.runningList.SetSize(listWidth, m.height-v)
 	}
 
 	var cmd tea.Cmd
@@ -135,6 +141,8 @@ func (m ModelSelector) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if !m.helpVisible {
 		if installAction {
 			m.installableList, cmd = m.installableList.Update(msg)
+		} else if runningAction {
+			m.runningList, cmd = m.runningList.Update(msg)
 		} else {
 			m.installedList, cmd = m.installedList.Update(msg)
 		}
@@ -146,18 +154,29 @@ func (m ModelSelector) View() string {
 	var renderedTabs []string
 
 	numTabs := len(m.Tabs)
-	tabWidth := m.width / numTabs
-	for i, t := range m.Tabs {
+	tabWidth := int(math.Floor(float64(m.width) / float64(numTabs)))
+	for i, tab := range m.Tabs {
+		t := string(tab)
 		var style lipgloss.Style
 		isFirst, isActive := i == 0, i == m.ActiveTab
 		w := tabWidth
 		if isFirst {
-			w = m.width - ((numTabs - 1) * tabWidth) - 2
+			w = m.width - ((numTabs - 1) * tabWidth) - len(m.Tabs) - 1
 		}
 		if isActive {
 			style = activeTabStyle.Copy().Width(w)
 		} else {
 			style = inactiveTabStyle.Copy().Foreground(dimTextColor).Width(w)
+		}
+
+		// If the tab is too long, truncate it
+		// TODO: This is a hack, we should probably do something better
+		if len(t) > w-2 {
+			if w > 2 {
+				t = t[:w-2]
+			} else {
+				t = t[:1]
+			}
 		}
 
 		renderedTabs = append(renderedTabs, style.Render(t))
@@ -171,9 +190,13 @@ func (m ModelSelector) View() string {
 
 	var list list.Model
 
-	switch m.Tabs[m.ActiveTab] {
-	case INSTALL:
+	switch tabs.Tab(m.Tabs[m.ActiveTab]) {
+	case tabs.INSTALL:
 		list = m.installableList
+	case tabs.RUNNING:
+		list = m.runningList
+	case tabs.INSTALLED:
+		list = m.installedList
 	default:
 		list = m.installedList
 	}
@@ -193,10 +216,10 @@ func (m ModelSelector) View() string {
 
 		info := fmt.Sprintf("%s not found", titleStyle.Render(fmt.Sprintf(" %s ", list.FilterValue())))
 
-		switch m.Tabs[m.ActiveTab] {
-		case INSTALL:
+		switch tabs.Tab(m.Tabs[m.ActiveTab]) {
+		case tabs.INSTALL:
 			if selectedItem != nil {
-				selectedModel := m.installableList.SelectedItem().(OllamaModel)
+				selectedModel := selectedItem.(OllamaModel)
 				extraInfo := ""
 				if len(selectedModel.ExtraInfo) > 0 {
 					extraInfo = fmt.Sprintf("\n\n%s", strings.Join(selectedModel.ExtraInfo, " "))
@@ -215,9 +238,41 @@ func (m ModelSelector) View() string {
 					),
 				)
 			}
+		case tabs.RUNNING:
+			if selectedItem != nil {
+				selectedModel := selectedItem.(RunningOllamaModel)
+				info = fmt.Sprintf(
+					"%s\n\n%s\n\n%s\n\n%s",
+					titleStyle.
+						AlignHorizontal(lipgloss.Center).
+						Render(fmt.Sprintf(" %s ", selectedModel.Name)),
+					strings.Join([]string{
+						titleStyle.
+							Copy().
+							Background(lipgloss.Color("242")).
+							Render(fmt.Sprintf(" %s ", selectedModel.Details.Format)),
+						titleStyle.
+							Copy().
+							Background(lipgloss.Color("242")).
+							Render(fmt.Sprintf(" %s ", selectedModel.Details.QuantizationLevel)),
+					}, " "),
+					titleStyle.
+						AlignHorizontal(lipgloss.Center).
+						Render(
+							fmt.Sprintf(
+								" Expires in %s ",
+								humanize.Time(selectedModel.ExpiresAt),
+							),
+						),
+					fmt.Sprintf(
+						"Size in VRAM %s",
+						humanize.Bytes(uint64(selectedModel.SizeVRAM)),
+					),
+				)
+			}
 		default:
 			if selectedItem != nil {
-				selectedModel := list.SelectedItem().(InstalledOllamaModel)
+				selectedModel := selectedItem.(InstalledOllamaModel)
 				info = fmt.Sprintf(
 					"%s\n\n%s\n\n%s\n\n%s",
 					titleStyle.

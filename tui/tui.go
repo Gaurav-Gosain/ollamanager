@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/ollama/ollama/api"
 )
 
 var (
@@ -26,14 +27,6 @@ const (
 	padding  = 2
 	maxWidth = 80
 )
-
-// Response represents the response structure from the API
-type Response struct {
-	Status    string `json:"status"`
-	Digest    string `json:"digest,omitempty"`
-	Total     int64  `json:"total,omitempty"`
-	Completed int64  `json:"completed,omitempty"`
-}
 
 type progressErrMsg struct{ err error }
 
@@ -100,7 +93,7 @@ func (m InstallModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.Err = msg.err
 		return m, tea.Quit
 
-	case Response:
+	case api.ProgressResponse:
 		var cmds []tea.Cmd
 
 		if m.rawStatus != msg.Status {
