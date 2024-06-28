@@ -158,7 +158,7 @@ func ModelPicker(
 					Options(validOptions...).
 					Value(&model.ManageAction),
 			),
-		)
+		).WithProgramOptions(tea.WithAltScreen())
 
 		err = form.Run()
 		if err != nil {

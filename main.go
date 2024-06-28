@@ -1,6 +1,7 @@
 package main
 
 import (
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/gaurav-gosain/ollamanager/manager"
 	"github.com/gaurav-gosain/ollamanager/tabs"
@@ -42,7 +43,7 @@ func main() {
 					Title("Would you like to continue?").
 					Value(&confirm),
 			),
-		)
+		).WithProgramOptions(tea.WithAltScreen())
 
 		err = form.Run()
 		if err != nil {

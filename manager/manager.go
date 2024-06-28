@@ -244,7 +244,7 @@ func Run(
 					Title("Would you like to continue?").
 					Value(&confirm),
 			),
-		)
+		).WithProgramOptions(tea.WithAltScreen())
 
 		err = form.Run()
 		if err != nil {
@@ -342,7 +342,7 @@ func Run(
 					Title("Would you like to continue?").
 					Value(&confirm),
 			),
-		)
+		).WithProgramOptions(tea.WithAltScreen())
 
 		err = form.Run()
 		if err != nil {

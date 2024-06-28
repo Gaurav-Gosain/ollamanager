@@ -161,7 +161,7 @@ func (m ModelSelector) View() string {
 		isFirst, isActive := i == 0, i == m.ActiveTab
 		w := tabWidth
 		if isFirst {
-			w = m.width - ((numTabs - 1) * tabWidth) - len(m.Tabs) - 1
+			w = m.width - ((numTabs - 1) * tabWidth) - len(m.Tabs)
 		}
 		if isActive {
 			style = activeTabStyle.Copy().Width(w)
