@@ -19,13 +19,22 @@ import (
 	"github.com/ollama/ollama/api"
 )
 
-func installModel(modelName string, p *tea.Program) {
+type OllamaAPI struct {
+	client *api.Client
+}
+
+func NewOllamaAPI() (OllamaAPI, error) {
 	client, err := api.ClientFromEnvironment()
 	if err != nil {
-		fmt.Println("Error creating client:", err)
-		return
+		return OllamaAPI{}, err
 	}
 
+	return OllamaAPI{
+		client: client,
+	}, nil
+}
+
+func (o OllamaAPI) installModel(modelName string, p *tea.Program) {
 	ctx := context.Background()
 
 	req := &api.PullRequest{
@@ -36,7 +45,7 @@ func installModel(modelName string, p *tea.Program) {
 		return nil
 	}
 
-	err = client.Pull(ctx, req, progressFunc)
+	err := o.client.Pull(ctx, req, progressFunc)
 	if err != nil {
 		fmt.Println("Error pulling model:", err.Error())
 		return
@@ -45,19 +54,14 @@ func installModel(modelName string, p *tea.Program) {
 
 // deleteModel deletes a model by name It returns an error if the model is not
 // found or if any other error occurs.
-func deleteModel(modelName string) error {
-	client, err := api.ClientFromEnvironment()
-	if err != nil {
-		return fmt.Errorf("failed to initialize client: %s", err.Error())
-	}
-
+func (o OllamaAPI) deleteModel(modelName string) error {
 	ctx := context.Background()
 
 	req := &api.DeleteRequest{
 		Model: modelName,
 	}
 
-	err = client.Delete(ctx, req)
+	err := o.client.Delete(ctx, req)
 	if err != nil {
 		return fmt.Errorf("failed to delete model: %s", err.Error())
 	}
@@ -65,12 +69,7 @@ func deleteModel(modelName string) error {
 	return nil
 }
 
-func loadModel(modelName string) error {
-	client, err := api.ClientFromEnvironment()
-	if err != nil {
-		return fmt.Errorf("failed to initialize client: %s", err.Error())
-	}
-
+func (o OllamaAPI) loadModel(modelName string) error {
 	ctx := context.Background()
 
 	req := &api.GenerateRequest{
@@ -80,7 +79,7 @@ func loadModel(modelName string) error {
 		},
 	}
 
-	err = client.Generate(ctx, req, func(g api.GenerateResponse) error { return nil })
+	err := o.client.Generate(ctx, req, func(g api.GenerateResponse) error { return nil })
 	if err != nil {
 		return fmt.Errorf("failed to load model: %s", err.Error())
 	}
@@ -99,12 +98,7 @@ func loadModel(modelName string) error {
 	return nil
 }
 
-func freeModel(modelName string) error {
-	client, err := api.ClientFromEnvironment()
-	if err != nil {
-		return fmt.Errorf("failed to initialize client: %s", err.Error())
-	}
-
+func (o OllamaAPI) freeModel(modelName string) error {
 	ctx := context.Background()
 
 	req := &api.GenerateRequest{
@@ -114,7 +108,7 @@ func freeModel(modelName string) error {
 		},
 	}
 
-	err = client.Generate(ctx, req, func(g api.GenerateResponse) error { return nil })
+	err := o.client.Generate(ctx, req, func(g api.GenerateResponse) error { return nil })
 	if err != nil {
 		return fmt.Errorf("failed to free model: %s", err.Error())
 	}
@@ -161,10 +155,10 @@ func GetAvailableTags(modelName string) ([]string, error) {
 
 func Run(
 	selectedTabs []tabs.Tab,
-	approvedActions []tabs.InstalledAction,
+	approvedActions []tabs.ManageAction,
 ) (
 	action tabs.Tab,
-	manageAction tabs.InstalledAction,
+	manageAction tabs.ManageAction,
 	modelName string,
 	err error,
 ) {
@@ -261,19 +255,23 @@ func Run(
 	}
 
 	switch tabs.Tab(modelSelector.Action) {
-	case tabs.INSTALLED:
+	case tabs.MANAGE:
 		modelName = modelSelector.SelectedInstalledModel.Name
-	case tabs.RUNNING:
+	case tabs.MONITOR:
 		modelName = modelSelector.SelectedRunningModel.Name
 	}
 
 	utils.ClearTerminal()
 
+	selectedAction := string(modelSelector.Action)
+	if modelSelector.Action == tabs.MANAGE {
+		selectedAction += ":" + string(modelSelector.ManageAction)
+	}
 	fmt.Println(
 		lipgloss.NewStyle().Padding(1, 2).Render(
 			fmt.Sprintf(
 				"Picked action %s on model %s",
-				tui.StatusStyle.SetString(string(modelSelector.Action)).String(),
+				tui.StatusStyle.SetString(selectedAction).String(),
 				tui.StatusStyle.SetString(modelName).String(),
 			),
 		),
@@ -289,9 +287,15 @@ func Run(
 	var actionErr error
 	var res tea.Model
 
+	ollamaAPI, err := NewOllamaAPI()
+	if err != nil {
+		fmt.Println("Error creating client:", err)
+		return
+	}
+
 	switch modelSelector.Action {
 	case tabs.INSTALL:
-		go installModel(modelName, p)
+		go ollamaAPI.installModel(modelName, p)
 		res, err = p.Run()
 		if err != nil {
 			fmt.Println("error running program:", err.Error())
@@ -299,10 +303,10 @@ func Run(
 		}
 
 		actionErr = res.(tui.InstallModel).Err
-	case tabs.INSTALLED:
+	case tabs.MANAGE:
 		switch modelSelector.ManageAction {
 		case tabs.UPDATE:
-			go installModel(modelName, p)
+			go ollamaAPI.installModel(modelName, p)
 
 			res, err = p.Run()
 			if err != nil {
@@ -313,9 +317,9 @@ func Run(
 			actionErr = res.(tui.InstallModel).Err
 		case tabs.DELETE:
 			modelName = modelSelector.SelectedInstalledModel.Name
-			actionErr = deleteModel(modelName)
+			actionErr = ollamaAPI.deleteModel(modelName)
 		}
-	case tabs.RUNNING:
+	case tabs.MONITOR:
 		// TODO: Implement running model
 		modelName = modelSelector.SelectedRunningModel.Name
 		fmt.Println(
@@ -355,9 +359,9 @@ func Run(
 
 		switch runningAction {
 		case "load":
-			actionErr = loadModel(modelName)
+			actionErr = ollamaAPI.loadModel(modelName)
 		case "free":
-			actionErr = freeModel(modelName)
+			actionErr = ollamaAPI.freeModel(modelName)
 		case "none":
 			actionErr = nil
 		}

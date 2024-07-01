@@ -33,7 +33,7 @@ func PrintError(err error) {
 	}
 }
 
-func PrintActionResult(action tabs.Tab, manageAction tabs.InstalledAction, modelName string, err error) error {
+func PrintActionResult(action tabs.Tab, manageAction tabs.ManageAction, modelName string, err error) error {
 	if err != nil {
 		PrintError(err)
 		return err
@@ -48,8 +48,8 @@ func PrintActionResult(action tabs.Tab, manageAction tabs.InstalledAction, model
 
 	actionStr := string(action)
 
-	if action != tabs.RUNNING {
-		if action == tabs.INSTALLED {
+	if action != tabs.MONITOR {
+		if action == tabs.MANAGE {
 			actionStr = string(manageAction)
 		}
 		fmt.Println(

@@ -11,10 +11,6 @@ import (
 
 type InstalledOllamaModel api.ListModelResponse
 
-type TagResponse struct {
-	Models []InstalledOllamaModel `json:"models"`
-}
-
 func GetInstalledModels() ([]InstalledOllamaModel, error) {
 	client, err := api.ClientFromEnvironment()
 	if err != nil {

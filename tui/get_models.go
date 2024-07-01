@@ -99,7 +99,6 @@ func GetAvailableModels() ([]OllamaModel, error) {
 			model.ExtraInfo = append(
 				model.ExtraInfo,
 				titleStyle.
-					Copy().
 					Background(lipgloss.Color("242")).
 					Render(
 						fmt.Sprintf(

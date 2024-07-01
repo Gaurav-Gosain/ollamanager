@@ -3,9 +3,11 @@ package tui
 import (
 	"fmt"
 	"math"
+	"slices"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -38,7 +40,7 @@ var (
 	highlightColor    = lipgloss.AdaptiveColor{Light: "#874BFD", Dark: "#7D56F4"}
 	dimTextColor      = lipgloss.AdaptiveColor{Light: "250", Dark: "238"}
 	inactiveTabStyle  = lipgloss.NewStyle().Border(inactiveTabBorder, true).BorderForeground(highlightColor).Padding(0, 1)
-	activeTabStyle    = inactiveTabStyle.Copy().Border(activeTabBorder, true)
+	activeTabStyle    = inactiveTabStyle.Border(activeTabBorder, true)
 	windowStyle       = lipgloss.NewStyle().BorderForeground(highlightColor).Padding(2, 0).Align(lipgloss.Center).Border(lipgloss.NormalBorder()).UnsetBorderTop()
 )
 
@@ -59,9 +61,9 @@ type ModelSelector struct {
 	SelectedRunningModel     RunningOllamaModel
 	SelectedInstalledModel   InstalledOllamaModel
 	Action                   tabs.Tab
-	ManageAction             tabs.InstalledAction
+	ManageAction             tabs.ManageAction
 	Tabs                     []tabs.Tab
-	ApprovedActions          []tabs.InstalledAction
+	ApprovedActions          []tabs.ManageAction
 	width                    int
 	height                   int
 	ActiveTab                int
@@ -73,10 +75,20 @@ func (m ModelSelector) Init() tea.Cmd {
 	return nil
 }
 
+func (m *ModelSelector) SetSelectedModel(installAction, manageAction, monitorAction bool) {
+	if installAction {
+		m.SelectedInstallableModel = m.installableList.SelectedItem().(OllamaModel)
+	} else if monitorAction {
+		m.SelectedRunningModel = m.runningList.SelectedItem().(RunningOllamaModel)
+	} else if manageAction {
+		m.SelectedInstalledModel = m.installedList.SelectedItem().(InstalledOllamaModel)
+	}
+}
+
 func (m ModelSelector) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	installAction := m.Tabs[m.ActiveTab] == tabs.INSTALL
-	manageAction := m.Tabs[m.ActiveTab] == tabs.INSTALLED
-	runningAction := m.Tabs[m.ActiveTab] == tabs.RUNNING
+	manageAction := m.Tabs[m.ActiveTab] == tabs.MANAGE
+	monitorAction := m.Tabs[m.ActiveTab] == tabs.MONITOR
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -96,26 +108,42 @@ func (m ModelSelector) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		switch keypress := msg.String(); keypress {
-		case "ctrl+c", "q":
+		case "ctrl+c", "q", "esc":
 			return m, tea.Quit
 		case "?":
 			m.helpVisible = !m.helpVisible
 			return m, nil
 		case "n", "tab":
 			m.ActiveTab = min(m.ActiveTab+1, len(m.Tabs)-1)
+			m.Action = tabs.Tab(m.Tabs[m.ActiveTab])
 			return m, nil
 		case "p", "shift+tab":
 			m.ActiveTab = max(m.ActiveTab-1, 0)
-			return m, nil
-		case "enter":
-			if installAction {
-				m.SelectedInstallableModel = m.installableList.SelectedItem().(OllamaModel)
-			} else if runningAction {
-				m.SelectedRunningModel = m.runningList.SelectedItem().(RunningOllamaModel)
-			} else if manageAction {
-				m.SelectedInstalledModel = m.installedList.SelectedItem().(InstalledOllamaModel)
-			}
 			m.Action = tabs.Tab(m.Tabs[m.ActiveTab])
+			return m, nil
+		case "u":
+			// if on manage tab, select the update `ManageAction` (if it is in the list of approved actions)
+			if manageAction && slices.Contains(m.ApprovedActions, tabs.UPDATE) {
+				m.ManageAction = tabs.UPDATE
+				m.SetSelectedModel(installAction, manageAction, monitorAction)
+				return m, tea.Quit
+			}
+		case "d":
+			// if on manage tab, select the delete `ManageAction` (if it is in the list of approved actions)
+			if manageAction && slices.Contains(m.ApprovedActions, tabs.DELETE) {
+				m.ManageAction = tabs.DELETE
+				m.SetSelectedModel(installAction, manageAction, monitorAction)
+				return m, tea.Quit
+			}
+		case "c":
+			// if on manage tab, select the chat `ManageAction` (if it is in the list of approved actions)
+			if manageAction && slices.Contains(m.ApprovedActions, tabs.CHAT) {
+				m.ManageAction = tabs.CHAT
+				m.SetSelectedModel(installAction, manageAction, monitorAction)
+				return m, tea.Quit
+			}
+		case "enter":
+			m.SetSelectedModel(installAction, manageAction, monitorAction)
 			return m, tea.Quit
 		}
 	case tea.WindowSizeMsg:
@@ -141,7 +169,7 @@ func (m ModelSelector) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if !m.helpVisible {
 		if installAction {
 			m.installableList, cmd = m.installableList.Update(msg)
-		} else if runningAction {
+		} else if monitorAction {
 			m.runningList, cmd = m.runningList.Update(msg)
 		} else {
 			m.installedList, cmd = m.installedList.Update(msg)
@@ -164,9 +192,9 @@ func (m ModelSelector) View() string {
 			w = m.width - ((numTabs - 1) * tabWidth) - len(m.Tabs)
 		}
 		if isActive {
-			style = activeTabStyle.Copy().Width(w)
+			style = activeTabStyle.Width(w)
 		} else {
-			style = inactiveTabStyle.Copy().Foreground(dimTextColor).Width(w)
+			style = inactiveTabStyle.Foreground(dimTextColor).Width(w)
 		}
 
 		// If the tab is too long, truncate it
@@ -193,16 +221,16 @@ func (m ModelSelector) View() string {
 	switch tabs.Tab(m.Tabs[m.ActiveTab]) {
 	case tabs.INSTALL:
 		list = m.installableList
-	case tabs.RUNNING:
+	case tabs.MONITOR:
 		list = m.runningList
-	case tabs.INSTALLED:
+	case tabs.MANAGE:
 		list = m.installedList
 	default:
 		list = m.installedList
 	}
 
 	frames := []string{
-		layoutStyle.Copy().
+		layoutStyle.
 			Padding(0, 2).
 			Width(m.installableList.Width()).
 			Height(m.height - v).
@@ -238,7 +266,7 @@ func (m ModelSelector) View() string {
 					),
 				)
 			}
-		case tabs.RUNNING:
+		case tabs.MONITOR:
 			if selectedItem != nil {
 				selectedModel := selectedItem.(RunningOllamaModel)
 				info = fmt.Sprintf(
@@ -248,11 +276,9 @@ func (m ModelSelector) View() string {
 						Render(fmt.Sprintf(" %s ", selectedModel.Name)),
 					strings.Join([]string{
 						titleStyle.
-							Copy().
 							Background(lipgloss.Color("242")).
 							Render(fmt.Sprintf(" %s ", selectedModel.Details.Format)),
 						titleStyle.
-							Copy().
 							Background(lipgloss.Color("242")).
 							Render(fmt.Sprintf(" %s ", selectedModel.Details.QuantizationLevel)),
 					}, " "),
@@ -280,11 +306,9 @@ func (m ModelSelector) View() string {
 						Render(fmt.Sprintf(" %s ", selectedModel.Name)),
 					strings.Join([]string{
 						titleStyle.
-							Copy().
 							Background(lipgloss.Color("242")).
 							Render(fmt.Sprintf(" %s ", selectedModel.Details.Format)),
 						titleStyle.
-							Copy().
 							Background(lipgloss.Color("242")).
 							Render(fmt.Sprintf(" %s ", selectedModel.Details.QuantizationLevel)),
 					}, " "),
@@ -297,7 +321,7 @@ func (m ModelSelector) View() string {
 
 		}
 
-		frames = append(frames, layoutStyle.Copy().
+		frames = append(frames, layoutStyle.
 			Width(m.width-list.Width()).
 			Height(m.height-v).
 			AlignHorizontal(lipgloss.Center).
@@ -312,11 +336,27 @@ func (m ModelSelector) View() string {
 		frames...,
 	)
 	if m.helpVisible {
+
+		if m.Tabs[m.ActiveTab] == tabs.MANAGE {
+			keyMap := Keys.DefaultFullHelpKeys()
+			for _, action := range m.ApprovedActions {
+
+				keyBind := string(strings.ToLower(string(action))[0])
+
+				keyMap[0] = append(keyMap[0], key.NewBinding(
+					key.WithKeys(keyBind),
+					key.WithHelp(keyBind, string(action)),
+				))
+			}
+			Keys.SetFullHelpKeys(keyMap)
+		} else {
+			Keys.SetFullHelpKeys(Keys.DefaultFullHelpKeys())
+		}
+
 		activeTabContent = PlaceOverlay(
 			m.width/10,
 			5*m.height/100,
 			layoutStyle.
-				Copy().
 				Width(8*m.width/10).
 				Height(90*m.height/100).
 				AlignHorizontal(lipgloss.Center).

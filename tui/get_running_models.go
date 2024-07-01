@@ -11,10 +11,6 @@ import (
 
 type RunningOllamaModel api.ProcessModelResponse
 
-type PSResponse struct {
-	Models []RunningOllamaModel `json:"models"`
-}
-
 func GetRunningModels() ([]RunningOllamaModel, error) {
 	client, err := api.ClientFromEnvironment()
 	if err != nil {

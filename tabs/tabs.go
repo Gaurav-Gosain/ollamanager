@@ -1,16 +1,16 @@
 package tabs
 
 type (
-	Tab             string
-	InstalledAction string
+	Tab          string
+	ManageAction string
 )
 
 const (
-	INSTALL   Tab = "Install"
-	RUNNING   Tab = "Running"
-	INSTALLED Tab = "Installed"
+	INSTALL Tab = "Install"
+	MONITOR Tab = "Monitor"
+	MANAGE  Tab = "Manage"
 
-	CHAT   InstalledAction = "Chat"
-	UPDATE InstalledAction = "Update"
-	DELETE InstalledAction = "Delete"
+	CHAT   ManageAction = "Chat"
+	UPDATE ManageAction = "Update"
+	DELETE ManageAction = "Delete"
 )

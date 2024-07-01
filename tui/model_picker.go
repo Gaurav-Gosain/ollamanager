@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"errors"
 	"slices"
 
 	"github.com/charmbracelet/bubbles/help"
@@ -15,7 +16,7 @@ import (
 
 func ModelPicker(
 	selectedTabs []tabs.Tab,
-	approvedActions []tabs.InstalledAction,
+	approvedActions []tabs.ManageAction,
 ) (result ModelSelector, err error) {
 	ctx := context.Background()
 
@@ -142,9 +143,19 @@ func ModelPicker(
 
 	model := resModel.(ModelSelector)
 
-	if model.Action == tabs.INSTALLED {
+	// TODO: could be cleaner
+	if err != nil ||
+		(model.SelectedInstallableModel.Name == "" &&
+			model.SelectedInstalledModel.Name == "" &&
+			model.SelectedRunningModel.Name == "") {
+		err = errors.New(`failed to pick a model :(`)
+		return
+	}
 
-		var validOptions []huh.Option[tabs.InstalledAction]
+	// if manage tab was selected, but no valid action was selected, show a form, otherwise continue
+	if model.Action == tabs.MANAGE && !slices.Contains(model.ApprovedActions, model.ManageAction) {
+
+		var validOptions []huh.Option[tabs.ManageAction]
 
 		for _, option := range model.ApprovedActions {
 			validOptions = append(validOptions, huh.NewOption(string(option), option))
@@ -153,7 +164,7 @@ func ModelPicker(
 		form := huh.NewForm(
 			huh.NewGroup(
 				// Ask the user for a base burger and toppings.
-				huh.NewSelect[tabs.InstalledAction]().
+				huh.NewSelect[tabs.ManageAction]().
 					Title("Choose the action for " + model.SelectedInstalledModel.Name).
 					Options(validOptions...).
 					Value(&model.ManageAction),

@@ -1,7 +1,6 @@
 package main
 
 import (
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/gaurav-gosain/ollamanager/manager"
 	"github.com/gaurav-gosain/ollamanager/tabs"
@@ -12,15 +11,15 @@ func main() {
 	for {
 		selectedTabs := []tabs.Tab{
 			tabs.INSTALL,
-			tabs.INSTALLED,
-			tabs.RUNNING,
+			tabs.MANAGE,
+			tabs.MONITOR,
 		}
-		approvedActions := []tabs.InstalledAction{
+		approvedActions := []tabs.ManageAction{
 			tabs.UPDATE,
 			tabs.DELETE,
 
 			// INFO: Other actions
-			// tabs.CHAT,
+			tabs.CHAT,
 		}
 
 		action, manageAction, selectedModel, err := manager.Run(selectedTabs, approvedActions)
@@ -43,7 +42,7 @@ func main() {
 					Title("Would you like to continue?").
 					Value(&confirm),
 			),
-		).WithProgramOptions(tea.WithAltScreen())
+		)
 
 		err = form.Run()
 		if err != nil {
