@@ -166,18 +166,6 @@ If you prefer to build from source, follow these steps:
 
 2. Follow the on-screen instructions to interact with Ollamanager.
 
-### Options
-
-- `--help`: Display the help message.
-- `--base-url`: Specify a custom base URL for the Ollama server.
-
-```bash
-> ollamanager --help
-Usage of ollamanager:
-  -base-url string
-        Base URL for the API server (default "http://localhost:11434")
-```
-
 ## 📦 Dependencies
 
 Ollamanager relies on the following third-party packages:
