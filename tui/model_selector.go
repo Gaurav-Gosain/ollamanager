@@ -269,6 +269,12 @@ func (m ModelSelector) View() string {
 		case tabs.MONITOR:
 			if selectedItem != nil {
 				selectedModel := selectedItem.(RunningOllamaModel)
+				totalSize := float64(selectedModel.Size)
+				gpu := float64(selectedModel.SizeVRAM)
+				cpu := totalSize - gpu
+
+				gpuPercentage := fmt.Sprintf("%.2f", gpu*100/totalSize)
+				cpuPercentage := fmt.Sprintf("%.2f", cpu*100/totalSize)
 				info = fmt.Sprintf(
 					"%s\n\n%s\n\n%s\n\n%s",
 					titleStyle.
@@ -291,8 +297,10 @@ func (m ModelSelector) View() string {
 							),
 						),
 					fmt.Sprintf(
-						"Size in VRAM %s",
+						"Total Size %s | GPU %s%% | CPU %s%%",
 						humanize.Bytes(uint64(selectedModel.SizeVRAM)),
+						gpuPercentage,
+						cpuPercentage,
 					),
 				)
 			}
