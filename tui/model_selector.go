@@ -162,9 +162,15 @@ func (m ModelSelector) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.help.Width = 8 * m.width / 10
 		v = activeTabStyle.GetVerticalFrameSize()
-		m.installableList.SetSize(listWidth, m.height-v)
-		m.installedList.SetSize(listWidth, m.height-v)
-		m.runningList.SetSize(listWidth, m.height-v)
+		if slices.Contains(m.Tabs, tabs.INSTALL) {
+			m.installableList.SetSize(listWidth, m.height-v)
+		}
+		if slices.Contains(m.Tabs, tabs.MONITOR) {
+			m.runningList.SetSize(listWidth, m.height-v)
+		}
+		if slices.Contains(m.Tabs, tabs.MANAGE) {
+			m.installedList.SetSize(listWidth, m.height-v)
+		}
 	}
 
 	var cmd tea.Cmd
