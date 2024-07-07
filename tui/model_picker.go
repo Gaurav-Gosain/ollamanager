@@ -108,9 +108,9 @@ func ModelPicker(
 		return
 	}
 
-	if err != nil {
-		return
-	}
+	// if err != nil {
+	// 	return
+	// }
 
 	for _, model := range runningModels {
 		runningItems = append(runningItems, list.Item(model))

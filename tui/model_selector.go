@@ -77,10 +77,13 @@ func (m ModelSelector) Init() tea.Cmd {
 
 func (m *ModelSelector) SetSelectedModel(installAction, manageAction, monitorAction bool) {
 	if installAction {
+		m.Action = tabs.INSTALL
 		m.SelectedInstallableModel = m.installableList.SelectedItem().(OllamaModel)
 	} else if monitorAction {
+		m.Action = tabs.MONITOR
 		m.SelectedRunningModel = m.runningList.SelectedItem().(RunningOllamaModel)
 	} else if manageAction {
+		m.Action = tabs.MANAGE
 		m.SelectedInstalledModel = m.installedList.SelectedItem().(InstalledOllamaModel)
 	}
 }
