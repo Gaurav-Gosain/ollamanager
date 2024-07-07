@@ -198,7 +198,7 @@ func (m ModelSelector) View() string {
 		isFirst, isActive := i == 0, i == m.ActiveTab
 		w := tabWidth
 		if isFirst {
-			w = m.width - ((numTabs - 1) * tabWidth) - len(m.Tabs)
+			w = m.width - ((numTabs - 1) * tabWidth) - (numTabs - 1)
 		}
 		if isActive {
 			style = activeTabStyle.Width(w)
@@ -241,7 +241,7 @@ func (m ModelSelector) View() string {
 	frames := []string{
 		layoutStyle.
 			Padding(0, 2).
-			Width(m.installableList.Width()).
+			Width(list.Width()).
 			Height(m.height - v).
 			BorderForeground(lipgloss.Color("69")).
 			Render(list.View()),
@@ -266,7 +266,7 @@ func (m ModelSelector) View() string {
 					titleStyle.Render(fmt.Sprintf(" %s ", selectedModel.Name)),
 					lipgloss.NewStyle().Foreground(dimTextColor).Render(strings.TrimSpace(selectedModel.Updated)),
 					extraInfo,
-					wordwrap.String(selectedModel.Desc, m.width-m.installableList.Width()-8),
+					wordwrap.String(selectedModel.Desc, m.width-list.Width()-8),
 					lipgloss.NewStyle().Foreground(dimTextColor).Render(
 						fmt.Sprintf(
 							"%s Pulls • %s Tags",
@@ -307,7 +307,7 @@ func (m ModelSelector) View() string {
 						),
 					fmt.Sprintf(
 						"Total Size %s | GPU %s%% | CPU %s%%",
-						humanize.Bytes(uint64(selectedModel.SizeVRAM)),
+						humanize.Bytes(uint64(selectedModel.Size)),
 						gpuPercentage,
 						cpuPercentage,
 					),
@@ -329,7 +329,7 @@ func (m ModelSelector) View() string {
 							Background(lipgloss.Color("242")).
 							Render(fmt.Sprintf(" %s ", selectedModel.Details.QuantizationLevel)),
 					}, " "),
-					wordwrap.String(selectedModel.Digest, m.width-m.installableList.Width()),
+					wordwrap.String(selectedModel.Digest, m.width-list.Width()),
 					lipgloss.NewStyle().Foreground(dimTextColor).Render(
 						selectedModel.Description(),
 					),
