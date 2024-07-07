@@ -155,6 +155,16 @@ func ModelPicker(
 	// if manage tab was selected, but no valid action was selected, show a form, otherwise continue
 	if model.Action == tabs.MANAGE && !slices.Contains(model.ApprovedActions, model.ManageAction) {
 
+		if len(model.ApprovedActions) == 0 {
+			err = errors.New(`no actions are available for this model`)
+			return
+		}
+
+		if len(model.ApprovedActions) == 1 {
+			model.ManageAction = model.ApprovedActions[0]
+			return model, nil
+		}
+
 		var validOptions []huh.Option[tabs.ManageAction]
 
 		for _, option := range model.ApprovedActions {
