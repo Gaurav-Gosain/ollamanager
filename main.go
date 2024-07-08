@@ -19,15 +19,13 @@ func main() {
 			tabs.DELETE,
 
 			// INFO: Other actions
-			// tabs.CHAT,
+			tabs.CHAT,
 		}
 
-		action, manageAction, selectedModel, err := manager.Run(selectedTabs, approvedActions)
+		result, err := manager.Run(selectedTabs, approvedActions)
 
 		err = utils.PrintActionResult(
-			action,
-			manageAction,
-			selectedModel,
+			result,
 			err,
 		)
 		if err != nil {

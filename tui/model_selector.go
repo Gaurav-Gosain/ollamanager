@@ -38,7 +38,7 @@ var (
 	inactiveTabBorder = tabBorderWithBottom("┴", "─", "┴")
 	activeTabBorder   = tabBorderWithBottom("┘", " ", "└")
 	highlightColor    = lipgloss.AdaptiveColor{Light: "#874BFD", Dark: "#7D56F4"}
-	dimTextColor      = lipgloss.AdaptiveColor{Light: "250", Dark: "238"}
+	dimTextColor      = lipgloss.AdaptiveColor{Light: "250", Dark: "250"}
 	inactiveTabStyle  = lipgloss.NewStyle().Border(inactiveTabBorder, true).BorderForeground(highlightColor).Padding(0, 1)
 	activeTabStyle    = inactiveTabStyle.Border(activeTabBorder, true)
 	windowStyle       = lipgloss.NewStyle().BorderForeground(highlightColor).Padding(2, 0).Align(lipgloss.Center).Border(lipgloss.NormalBorder()).UnsetBorderTop()
@@ -316,8 +316,16 @@ func (m ModelSelector) View() string {
 		default:
 			if selectedItem != nil {
 				selectedModel := selectedItem.(InstalledOllamaModel)
+
+				isMultiModal := ""
+				if len(selectedModel.Details.Families) > 1 {
+					isMultiModal = titleStyle.
+						AlignHorizontal(lipgloss.Center).
+						Render(fmt.Sprintf("  %s ", "Vision"))
+				}
+
 				info = fmt.Sprintf(
-					"%s\n\n%s\n\n%s\n\n%s",
+					"%s\n\n%s\n\n%s\n\n%s\n\n%s",
 					titleStyle.
 						AlignHorizontal(lipgloss.Center).
 						Render(fmt.Sprintf(" %s ", selectedModel.Name)),
@@ -333,6 +341,7 @@ func (m ModelSelector) View() string {
 					lipgloss.NewStyle().Foreground(dimTextColor).Render(
 						selectedModel.Description(),
 					),
+					isMultiModal,
 				)
 			}
 

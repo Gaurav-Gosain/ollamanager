@@ -157,12 +157,12 @@ func Run(
 	selectedTabs []tabs.Tab,
 	approvedActions []tabs.ManageAction,
 ) (
-	action tabs.Tab,
-	manageAction tabs.ManageAction,
-	modelName string,
+	result utils.OllamanagerResult,
 	err error,
 ) {
 	ctx := context.Background()
+
+	var modelName string
 
 	modelSelector, err := tui.ModelPicker(
 		selectedTabs,
@@ -318,6 +318,8 @@ func Run(
 		case tabs.DELETE:
 			modelName = modelSelector.SelectedInstalledModel.Name
 			actionErr = ollamaAPI.deleteModel(modelName)
+		case tabs.CHAT:
+			result.IsMultiModal = len(modelSelector.SelectedInstalledModel.Details.Families) > 1
 		}
 	case tabs.MONITOR:
 		// TODO: Implement running model
@@ -368,8 +370,9 @@ func Run(
 
 	}
 
-	action = modelSelector.Action
-	manageAction = modelSelector.ManageAction
+	result.ModelName = modelName
+	result.Action = modelSelector.Action
+	result.ManageAction = modelSelector.ManageAction
 	err = actionErr
 	return
 }

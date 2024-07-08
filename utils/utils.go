@@ -10,6 +10,14 @@ import (
 	"github.com/gaurav-gosain/ollamanager/tabs"
 )
 
+type OllamanagerResult struct {
+	Err          error
+	Action       tabs.Tab
+	ManageAction tabs.ManageAction
+	ModelName    string
+	IsMultiModal bool
+}
+
 func PrintError(err error) {
 	ErrPadding := lipgloss.NewStyle().Padding(1, 2)
 	ErrorHeader := lipgloss.NewStyle().
@@ -33,7 +41,7 @@ func PrintError(err error) {
 	}
 }
 
-func PrintActionResult(action tabs.Tab, manageAction tabs.ManageAction, modelName string, err error) error {
+func PrintActionResult(result OllamanagerResult, err error) error {
 	if err != nil {
 		PrintError(err)
 		return err
@@ -46,18 +54,18 @@ func PrintActionResult(action tabs.Tab, manageAction tabs.ManageAction, modelNam
 		Bold(true).
 		Padding(0, 1)
 
-	actionStr := string(action)
+	actionStr := string(result.Action)
 
-	if action != tabs.MONITOR {
-		if action == tabs.MANAGE {
-			actionStr = string(manageAction)
+	if result.Action != tabs.MONITOR {
+		if result.Action == tabs.MANAGE {
+			actionStr = string(result.ManageAction)
 		}
 		fmt.Println(
 			Padding.Render(
 				fmt.Sprintf(
 					"Performed action %s on model %s successfully!",
 					SuccessHeader.Render(actionStr),
-					SuccessHeader.Render(modelName),
+					SuccessHeader.Render(result.ModelName),
 				),
 			),
 		)
