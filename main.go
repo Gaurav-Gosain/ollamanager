@@ -19,7 +19,7 @@ func main() {
 			tabs.DELETE,
 
 			// INFO: Other actions
-			tabs.CHAT,
+			// tabs.CHAT,
 		}
 
 		result, err := manager.Run(selectedTabs, approvedActions)
