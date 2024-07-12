@@ -76,6 +76,13 @@ func (k *KeyMap) DefaultFullHelpKeys() [][]key.Binding {
 	}
 }
 
+func (k *KeyMap) DefaultFullHelpKeysSingleTab() [][]key.Binding {
+	return [][]key.Binding{
+		{k.Up, k.Down, k.Left, k.Right, k.Enter},
+		{k.Quit, k.Filter, k.ClearFilter},
+	}
+}
+
 // FullHelp returns keybindings for the expanded help view. It's part of the
 // key.Map interface.
 func (k KeyMap) FullHelp() [][]key.Binding {

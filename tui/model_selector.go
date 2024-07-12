@@ -189,41 +189,45 @@ func (m ModelSelector) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m ModelSelector) View() string {
 	var renderedTabs []string
+	var row string
+	var v int
 
 	numTabs := len(m.Tabs)
-	tabWidth := int(math.Floor(float64(m.width) / float64(numTabs)))
-	for i, tab := range m.Tabs {
-		t := string(tab)
-		var style lipgloss.Style
-		isFirst, isActive := i == 0, i == m.ActiveTab
-		w := tabWidth
-		if isFirst {
-			w = m.width - ((numTabs - 1) * tabWidth) - (numTabs - 1)
-		}
-		if isActive {
-			style = activeTabStyle.Width(w)
-		} else {
-			style = inactiveTabStyle.Foreground(dimTextColor).Width(w)
-		}
 
-		// If the tab is too long, truncate it
-		// TODO: This is a hack, we should probably do something better
-		if len(t) > w-2 {
-			if w > 2 {
-				t = t[:w-2]
-			} else {
-				t = t[:1]
+	if numTabs > 1 {
+		tabWidth := int(math.Floor(float64(m.width) / float64(numTabs)))
+		for i, tab := range m.Tabs {
+			t := string(tab)
+			var style lipgloss.Style
+			isFirst, isActive := i == 0, i == m.ActiveTab
+			w := tabWidth
+			if isFirst {
+				w = m.width - ((numTabs - 1) * tabWidth) - (numTabs - 1)
 			}
+			if isActive {
+				style = activeTabStyle.Width(w)
+			} else {
+				style = inactiveTabStyle.Foreground(dimTextColor).Width(w)
+			}
+
+			// If the tab is too long, truncate it
+			// TODO: This is a hack, we should probably do something better
+			if len(t) > w-2 {
+				if w > 2 {
+					t = t[:w-2]
+				} else {
+					t = t[:1]
+				}
+			}
+
+			renderedTabs = append(renderedTabs, style.Render(t))
 		}
 
-		renderedTabs = append(renderedTabs, style.Render(t))
+		row = lipgloss.JoinHorizontal(lipgloss.Top, renderedTabs...)
+		v = activeTabStyle.GetVerticalFrameSize()
 	}
 
-	row := lipgloss.JoinHorizontal(lipgloss.Top, renderedTabs...)
-
 	activeTabContent := ""
-
-	v := activeTabStyle.GetVerticalFrameSize()
 
 	var list list.Model
 
@@ -363,8 +367,14 @@ func (m ModelSelector) View() string {
 	)
 	if m.helpVisible {
 
+		defaultKeys := Keys.DefaultFullHelpKeys()
+
+		if len(m.Tabs) == 1 {
+			defaultKeys = Keys.DefaultFullHelpKeysSingleTab()
+		}
+
 		if m.Tabs[m.ActiveTab] == tabs.MANAGE {
-			keyMap := Keys.DefaultFullHelpKeys()
+			keyMap := defaultKeys
 			for _, action := range m.ApprovedActions {
 
 				keyBind := string(strings.ToLower(string(action))[0])
@@ -376,15 +386,15 @@ func (m ModelSelector) View() string {
 			}
 			Keys.SetFullHelpKeys(keyMap)
 		} else {
-			Keys.SetFullHelpKeys(Keys.DefaultFullHelpKeys())
+			Keys.SetFullHelpKeys(defaultKeys)
 		}
 
 		activeTabContent = PlaceOverlay(
 			m.width/10,
-			5*m.height/100,
+			m.height/10,
 			layoutStyle.
 				Width(8*m.width/10).
-				Height(90*m.height/100).
+				Height(8*m.height/10).
 				AlignHorizontal(lipgloss.Center).
 				BorderForeground(lipgloss.Color("#209fb5")).
 				Render(
