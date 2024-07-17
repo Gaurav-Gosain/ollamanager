@@ -47,6 +47,10 @@ func PrintActionResult(result OllamanagerResult, err error) error {
 		return err
 	}
 
+	if result.ManageAction == tabs.CHAT {
+		return nil
+	}
+
 	Padding := lipgloss.NewStyle().Padding(1, 2)
 	SuccessHeader := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#F1F1F1")).
