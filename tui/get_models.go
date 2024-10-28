@@ -75,6 +75,8 @@ func GetAvailableModels() ([]OllamaModel, error) {
 		model.Pulls = removeWhitespace(
 			infoP.
 				First().
+				Find("span").
+				First().
 				Contents().
 				Not("*").
 				Text(),
@@ -83,12 +85,18 @@ func GetAvailableModels() ([]OllamaModel, error) {
 			infoP.
 				First().
 				Next().
+				First().
+				Find("span").
+				First().
 				Contents().
 				Not("*").
 				Text(),
 		)
 		model.Updated = removeWhitespace(
 			infoP.
+				Last().
+				First().
+				Find("span").
 				Last().
 				Contents().
 				Not("*").
