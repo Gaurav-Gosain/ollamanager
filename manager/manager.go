@@ -8,8 +8,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/progress"
-	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/bubbles/v2/progress"
+	oldtea "github.com/charmbracelet/bubbletea"
+	tea "github.com/charmbracelet/bubbletea/v2"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/huh/spinner"
 	"github.com/charmbracelet/lipgloss"
@@ -238,7 +239,7 @@ func Run(
 					Title("Would you like to continue?").
 					Value(&confirm),
 			),
-		).WithProgramOptions(tea.WithAltScreen())
+		).WithProgramOptions(oldtea.WithAltScreen())
 
 		err = form.Run()
 		if err != nil {
@@ -282,7 +283,7 @@ func Run(
 		Spinner:  tui.InitSpinner(),
 	}
 	// Start Bubble Tea
-	p := tea.NewProgram(m)
+	p := tea.NewProgram(m, tea.WithFerociousRenderer())
 
 	var actionErr error
 	var res tea.Model
@@ -348,7 +349,7 @@ func Run(
 					Title("Would you like to continue?").
 					Value(&confirm),
 			),
-		).WithProgramOptions(tea.WithAltScreen())
+		).WithProgramOptions(oldtea.WithAltScreen())
 
 		err = form.Run()
 		if err != nil {

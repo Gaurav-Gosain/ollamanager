@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/progress"
-	"github.com/charmbracelet/bubbles/spinner"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/bubbles/v2/progress"
+	"github.com/charmbracelet/bubbles/v2/spinner"
+	tea "github.com/charmbracelet/bubbletea/v2"
+	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/ollama/ollama/api"
 )
 
@@ -24,8 +24,10 @@ var (
 )
 
 const (
-	padding  = 2
-	maxWidth = 80
+	padding                  = 2
+	maxWidth                 = 80
+	LEFT_HALF_CIRCLE  string = string(0xe0b6)
+	RIGHT_HALF_CIRCLE string = string(0xe0b4)
 )
 
 type progressErrMsg struct{ err error }
@@ -67,8 +69,8 @@ func InitSpinner() spinner.Model {
 	return s
 }
 
-func (m InstallModel) Init() tea.Cmd {
-	return m.Spinner.Tick
+func (m InstallModel) Init() (tea.Model, tea.Cmd) {
+	return m, m.Spinner.Tick
 }
 
 func (m InstallModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -83,9 +85,9 @@ func (m InstallModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tea.WindowSizeMsg:
-		m.Progress.Width = msg.Width - padding*2 - 4
-		if m.Progress.Width > maxWidth {
-			m.Progress.Width = maxWidth
+		m.Progress.SetWidth(msg.Width - padding*2 - 4)
+		if m.Progress.Width() > maxWidth {
+			m.Progress.SetWidth(maxWidth)
 		}
 		return m, nil
 

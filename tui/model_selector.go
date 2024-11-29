@@ -6,10 +6,10 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/help"
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/list"
-	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/bubbles/v2/help"
+	"github.com/charmbracelet/bubbles/v2/key"
+	"github.com/charmbracelet/bubbles/v2/list"
+	tea "github.com/charmbracelet/bubbletea/v2"
 	"github.com/charmbracelet/lipgloss"
 	humanize "github.com/dustin/go-humanize"
 	"github.com/gaurav-gosain/ollamanager/tabs"
@@ -28,13 +28,19 @@ var (
 			Bold(true).
 			Foreground(lipgloss.Color("#FAFAFA")).
 			Background(lipgloss.Color("#7D56F4"))
+	titleBorder = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("#7D56F4")).Render
+
+	tagBorder = titleStyle.UnsetBackground().Foreground(lipgloss.Color("242")).Render
+	tagStyle  = titleStyle.Background(lipgloss.Color("242")).Render
 
 	descStyle = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("#7D56F4"))
 
 	// Page.
 
 	docStyle          = lipgloss.NewStyle().Margin(1)
-	helpStyle         = list.DefaultStyles().HelpStyle
+	helpStyle         = list.DefaultStyles(lipgloss.HasDarkBackground()).HelpStyle
 	inactiveTabBorder = tabBorderWithBottom("┴", "─", "┴")
 	activeTabBorder   = tabBorderWithBottom("┘", " ", "└")
 	highlightColor    = lipgloss.AdaptiveColor{Light: "#874BFD", Dark: "#7D56F4"}
@@ -71,8 +77,8 @@ type ModelSelector struct {
 	helpVisible              bool
 }
 
-func (m ModelSelector) Init() tea.Cmd {
-	return nil
+func (m ModelSelector) Init() (tea.Model, tea.Cmd) {
+	return m, nil
 }
 
 func (m *ModelSelector) SetSelectedModel(installAction, manageAction, monitorAction bool) {
@@ -202,7 +208,7 @@ func (m ModelSelector) View() string {
 			isFirst, isActive := i == 0, i == m.ActiveTab
 			w := tabWidth
 			if isFirst {
-				w = m.width - ((numTabs - 1) * tabWidth) - (numTabs - 1)
+				w = m.width - 1 - ((numTabs - 1) * tabWidth) - (numTabs - 1)
 			}
 			if isActive {
 				style = activeTabStyle.Width(w)
@@ -255,7 +261,9 @@ func (m ModelSelector) View() string {
 
 	if m.infoVisible {
 
-		info := fmt.Sprintf("%s not found", titleStyle.Render(fmt.Sprintf(" %s ", list.FilterValue())))
+		info := fmt.Sprintf("%s not found", titleBorder(LEFT_HALF_CIRCLE)+
+			titleStyle.Render(fmt.Sprintf(" %s ", list.FilterValue()))+
+			titleBorder(RIGHT_HALF_CIRCLE))
 
 		switch tabs.Tab(m.Tabs[m.ActiveTab]) {
 		case tabs.INSTALL:
@@ -263,11 +271,19 @@ func (m ModelSelector) View() string {
 				selectedModel := selectedItem.(OllamaModel)
 				extraInfo := ""
 				if len(selectedModel.ExtraInfo) > 0 {
-					extraInfo = fmt.Sprintf("\n\n%s", strings.Join(selectedModel.ExtraInfo, " "))
+					extraInfo = "\n\n"
+					for _, i := range selectedModel.ExtraInfo {
+						if lipgloss.Width(extraInfo+i) >= m.width-list.Width()-8 {
+							extraInfo += "\n\n"
+						}
+						extraInfo += " " + i
+					}
 				}
 				info = fmt.Sprintf(
 					"%s\n\n%s%s\n\n%s\n\n%s",
-					titleStyle.Render(fmt.Sprintf(" %s ", selectedModel.Name)),
+					titleBorder(LEFT_HALF_CIRCLE)+
+						titleStyle.Render(fmt.Sprintf(" %s ", selectedModel.Name))+
+						titleBorder(RIGHT_HALF_CIRCLE),
 					lipgloss.NewStyle().Foreground(dimTextColor).Render(strings.TrimSpace(selectedModel.Updated)),
 					extraInfo,
 					wordwrap.String(selectedModel.Desc, m.width-list.Width()-8),
@@ -290,25 +306,26 @@ func (m ModelSelector) View() string {
 				cpuPercentage := fmt.Sprintf("%.2f", cpu*100/totalSize)
 				info = fmt.Sprintf(
 					"%s\n\n%s\n\n%s\n\n%s",
-					titleStyle.
-						AlignHorizontal(lipgloss.Center).
-						Render(fmt.Sprintf(" %s ", selectedModel.Name)),
+					titleBorder(LEFT_HALF_CIRCLE)+
+						titleStyle.Render(fmt.Sprintf(" %s ", selectedModel.Name))+
+						titleBorder(RIGHT_HALF_CIRCLE),
 					strings.Join([]string{
-						titleStyle.
-							Background(lipgloss.Color("242")).
-							Render(fmt.Sprintf(" %s ", selectedModel.Details.Format)),
-						titleStyle.
-							Background(lipgloss.Color("242")).
-							Render(fmt.Sprintf(" %s ", selectedModel.Details.QuantizationLevel)),
+						tagBorder(LEFT_HALF_CIRCLE) +
+							tagStyle(fmt.Sprintf(" %s ", selectedModel.Details.Format)) +
+							tagBorder(RIGHT_HALF_CIRCLE),
+						tagBorder(LEFT_HALF_CIRCLE) +
+							tagStyle(fmt.Sprintf(" %s ", selectedModel.Details.QuantizationLevel)) +
+							tagBorder(RIGHT_HALF_CIRCLE),
 					}, " "),
-					titleStyle.
-						AlignHorizontal(lipgloss.Center).
-						Render(
-							fmt.Sprintf(
-								" Expires in %s ",
-								humanize.Time(selectedModel.ExpiresAt),
-							),
-						),
+					titleBorder(LEFT_HALF_CIRCLE)+
+						titleStyle.
+							Render(
+								fmt.Sprintf(
+									" Expires in %s ",
+									humanize.Time(selectedModel.ExpiresAt),
+								),
+							)+
+						titleBorder(RIGHT_HALF_CIRCLE),
 					fmt.Sprintf(
 						"Total Size %s | GPU %s%% | CPU %s%%",
 						humanize.Bytes(uint64(selectedModel.Size)),
@@ -323,23 +340,24 @@ func (m ModelSelector) View() string {
 
 				isMultiModal := ""
 				if len(selectedModel.Details.Families) > 1 {
-					isMultiModal = titleStyle.
+					isMultiModal = titleBorder(LEFT_HALF_CIRCLE) + titleStyle.
 						AlignHorizontal(lipgloss.Center).
-						Render(fmt.Sprintf("  %s ", "Vision"))
+						Render(fmt.Sprintf("  %s ", "Vision")) +
+						titleBorder(RIGHT_HALF_CIRCLE)
 				}
 
 				info = fmt.Sprintf(
 					"%s\n\n%s\n\n%s\n\n%s\n\n%s",
-					titleStyle.
-						AlignHorizontal(lipgloss.Center).
-						Render(fmt.Sprintf(" %s ", selectedModel.Name)),
+					titleBorder(LEFT_HALF_CIRCLE)+
+						titleStyle.Render(fmt.Sprintf(" %s ", selectedModel.Name))+
+						titleBorder(RIGHT_HALF_CIRCLE),
 					strings.Join([]string{
-						titleStyle.
-							Background(lipgloss.Color("242")).
-							Render(fmt.Sprintf(" %s ", selectedModel.Details.Format)),
-						titleStyle.
-							Background(lipgloss.Color("242")).
-							Render(fmt.Sprintf(" %s ", selectedModel.Details.QuantizationLevel)),
+						tagBorder(LEFT_HALF_CIRCLE) +
+							tagStyle(fmt.Sprintf(" %s ", selectedModel.Details.Format)) +
+							tagBorder(RIGHT_HALF_CIRCLE),
+						tagBorder(LEFT_HALF_CIRCLE) +
+							tagStyle(fmt.Sprintf(" %s ", selectedModel.Details.QuantizationLevel)) +
+							tagBorder(RIGHT_HALF_CIRCLE),
 					}, " "),
 					wordwrap.String(selectedModel.Digest, m.width-list.Width()),
 					lipgloss.NewStyle().Foreground(dimTextColor).Render(
@@ -352,7 +370,7 @@ func (m ModelSelector) View() string {
 		}
 
 		frames = append(frames, layoutStyle.
-			Width(m.width-list.Width()).
+			Width(m.width-list.Width()-1).
 			Height(m.height-v).
 			AlignHorizontal(lipgloss.Center).
 			Padding(0, 2).

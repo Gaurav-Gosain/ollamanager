@@ -5,12 +5,14 @@ import (
 	"errors"
 	"slices"
 
-	"github.com/charmbracelet/bubbles/help"
-	"github.com/charmbracelet/bubbles/list"
-	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/bubbles/v2/help"
+	"github.com/charmbracelet/bubbles/v2/list"
+	oldtea "github.com/charmbracelet/bubbletea"
+	tea "github.com/charmbracelet/bubbletea/v2"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/huh/spinner"
-	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/lipgloss/v2"
+	"github.com/charmbracelet/lipgloss/v2/compat"
 	"github.com/gaurav-gosain/ollamanager/tabs"
 )
 
@@ -123,7 +125,7 @@ func ModelPicker(
 	helpModel := help.New()
 	helpModel.ShowAll = true
 	helpModel.Styles.FullDesc.UnsetForeground()
-	helpModel.Styles.FullKey = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#43BF6D", Dark: "#73F59F"})
+	helpModel.Styles.FullKey = lipgloss.NewStyle().Foreground(compat.AdaptiveColor{Light: lipgloss.Color("#43BF6D"), Dark: lipgloss.Color("#73F59F")})
 
 	m := ModelSelector{
 		installableList: installableModelsList,
@@ -134,7 +136,7 @@ func ModelPicker(
 		help:            helpModel,
 	}
 
-	p := tea.NewProgram(m, tea.WithAltScreen())
+	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithFerociousRenderer())
 
 	resModel, err := p.Run()
 	if err != nil {
@@ -173,13 +175,12 @@ func ModelPicker(
 
 		form := huh.NewForm(
 			huh.NewGroup(
-				// Ask the user for a base burger and toppings.
 				huh.NewSelect[tabs.ManageAction]().
 					Title("Choose the action for " + model.SelectedInstalledModel.Name).
 					Options(validOptions...).
 					Value(&model.ManageAction),
 			),
-		).WithProgramOptions(tea.WithAltScreen())
+		).WithProgramOptions(oldtea.WithAltScreen())
 
 		err = form.Run()
 		if err != nil {

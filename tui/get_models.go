@@ -21,12 +21,11 @@ type OllamaModel struct {
 }
 
 func removeWhitespace(input string) string {
-	input = strings.TrimSpace(input)
 	// Match any sequence of whitespace characters or newline characters
 	regex := regexp.MustCompile(`\s+`)
 	// Replace matched sequences with a single space
 	cleaned := regex.ReplaceAllString(input, " ")
-	return cleaned
+	return strings.TrimSpace(cleaned)
 }
 
 func GetAvailableModels() ([]OllamaModel, error) {
@@ -103,19 +102,23 @@ func GetAvailableModels() ([]OllamaModel, error) {
 				Text(),
 		)
 
+		tagStyle := titleStyle.
+			Background(lipgloss.Color("242")).Render
+
+		tagBorder := titleStyle.Foreground(lipgloss.Color("242")).UnsetBackground().Render
+
 		root.Find("div > span").Each(func(i int, span *goquery.Selection) {
 			model.ExtraInfo = append(
 				model.ExtraInfo,
-				titleStyle.
-					Background(lipgloss.Color("242")).
-					Render(
+				tagBorder(LEFT_HALF_CIRCLE)+
+					tagStyle(
 						fmt.Sprintf(
 							" %s ",
 							removeWhitespace(
 								span.Text(),
 							),
 						),
-					),
+					)+tagBorder(RIGHT_HALF_CIRCLE),
 			)
 		})
 
