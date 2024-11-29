@@ -1,5 +1,5 @@
 
-FROM golang:1.22 as ollamanager-build
+FROM golang:1.23 as ollamanager-build
 
 WORKDIR /go/src/app
 COPY . .
