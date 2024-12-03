@@ -59,7 +59,7 @@ func GetAvailableModels() ([]OllamaModel, error) {
 
 		model.Name = removeWhitespace(
 			root.
-				Find("h2 > span").
+				Find("h2 > div > span").
 				Text(),
 		)
 		model.Desc = removeWhitespace(
